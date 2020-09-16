@@ -1,6 +1,7 @@
 ﻿using System;
+using System.Linq;
 
-namespace ThesisProjectQLearning
+namespace QLearningOnPerishableInventory
 {
     public struct QuantityLifeState
     {
@@ -12,6 +13,11 @@ namespace ThesisProjectQLearning
         {
             InvPosition = pos;
             RemainingLife = lf;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(InvPosition, RemainingLife);
         }
     }
 
@@ -30,6 +36,11 @@ namespace ThesisProjectQLearning
             Action = actn;
         }
 
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(State, Action);
+        }
+
         public override string ToString()
         {
             return "pos: " + State.InvPosition.ToString() + " ,remlife: " + State.RemainingLife.ToString() + " ,oq: " + Action.ToString();
@@ -42,13 +53,16 @@ namespace ThesisProjectQLearning
         {
             Random rnd = new Random(DateTime.UtcNow.Millisecond);
             var initial_q_values = new[] { 0, -5, 5, 10, -10 };
-            Maximum = -double.MaxValue;
+            var max_inv_pos = inv_pos.Last();
 
             for (int i = 0; i < inv_pos.Length; i++)
             {
-                for (int j = 0; j < rem_life.Length; j++)
+                var max_life = Math.Min(rem_life.Length, i * Product.LIFE_SPAN + 1);
+
+                for (int j = 0; j < max_life; j++)
                 {
-                    for (int k = 0; k < oq.Length; k++)
+                    var oq_max = Math.Min(max_inv_pos - i + 1, oq.Length);
+                    for (int k = 0; k < oq_max; k++)
                     {
                         double q_val = initial_q_values[rnd.Next(5)] + rnd.NextDouble();
                         Add(inv_pos[i], rem_life[j], oq[k], q_val);
@@ -61,14 +75,14 @@ namespace ThesisProjectQLearning
         {
             var key = new QTableKey1(new QuantityLifeState(ip, life), oq);
             dict_internal.Add(key, value);
-            if (value > Maximum)
-                Maximum = value;
+            //if (value > Maximum)
+            //    Maximum = value;
         }
 
-        public int GetMaxOrderQuantityForState(int quantity, int remlife, int min_oq, int max_oq)
+        public QTableKey1 GetMaxOrderQuantityForState(int quantity, int remlife, int min_oq, int max_oq)
         {
             double max_q_value = - double.MaxValue;
-            int ret = 0;
+            QTableKey1 key_for_max_q = default;
 
             for (int i = min_oq; i <= max_oq; i++)
             {
@@ -77,11 +91,11 @@ namespace ThesisProjectQLearning
                 if (q > max_q_value)
                 {
                     max_q_value = q;
-                    ret = key.Action;
+                    key_for_max_q = key;
                 }
             }
 
-            return ret;
+            return key_for_max_q;
         }
     }
 

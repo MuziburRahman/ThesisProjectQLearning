@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 
-namespace ThesisProjectQLearning
+namespace QLearningOnPerishableInventory
 {
     public abstract class QTableBase<T> : IDictionary<T, double>
     {
@@ -21,7 +21,7 @@ namespace ThesisProjectQLearning
 
         public bool IsReadOnly { get { return false; } }
 
-        protected double Maximum { get; set; }
+        //protected double Maximum { get; set; }
 
         public QTableBase(int capacity = 10)
         {
@@ -32,15 +32,15 @@ namespace ThesisProjectQLearning
         public void Add(T key, double value)
         {
             dict_internal.Add(key, value);
-            if (value > Maximum)
-                Maximum = value;
+            //if (value > Maximum)
+            //    Maximum = value;
         }
 
         public void Add(KeyValuePair<T, double> item)
         {
             dict_internal.Add(item.Key, item.Value);
-            if (item.Value > Maximum)
-                Maximum = item.Value;
+            //if (item.Value > Maximum)
+            //    Maximum = item.Value;
         }
 
         public void Clear()
@@ -83,7 +83,7 @@ namespace ThesisProjectQLearning
             return dict_internal.Remove(item.Key);
         }
 
-        public bool TryGetValue(T key, [System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out double value)
+        public bool TryGetValue(T key, out double value)
         {
             if (dict_internal.ContainsKey(key))
             {
