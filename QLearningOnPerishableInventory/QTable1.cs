@@ -79,14 +79,15 @@ namespace QLearningOnPerishableInventory
             //    Maximum = value;
         }
 
-        public QTableKey1 GetMaxOrderQuantityForState(int quantity, int remlife, int min_oq, int max_oq)
+        public QTableKey1 GetMaxOrderQuantityForState(in int quantity, in int remlife, int max_oq)
         {
             double max_q_value = - double.MaxValue;
             QTableKey1 key_for_max_q = default;
+            var state = new QuantityLifeState(quantity, remlife);
 
-            for (int i = min_oq; i <= max_oq; i++)
+            for (int i = 0; i <= max_oq; i++)
             {
-                QTableKey1 key = new QTableKey1(new QuantityLifeState(quantity, remlife), i);
+                QTableKey1 key = new QTableKey1(state, i);
                 double q = dict_internal[key];
                 if (q > max_q_value)
                 {
