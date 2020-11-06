@@ -85,7 +85,7 @@ namespace QLearningOnPerishableInventory
             QTableKey1 key_for_max_q = default;
             var state = new QuantityLifeState(quantity, remlife);
 
-            for (int i = 0; i <= max_oq; i++)
+            for (int i = 0; i < max_oq; i++)
             {
                 QTableKey1 key = new QTableKey1(state, i);
                 double q = dict_internal[key];

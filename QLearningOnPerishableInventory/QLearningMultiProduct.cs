@@ -11,74 +11,54 @@ namespace QLearningOnPerishableInventory
     {
         const int InventoryPositionCount_S1 = 41;
         const int RemainingLivesCount_S1 = InventoryPositionCount_S1 * Product.LIFE_SPAN;
-        const int OrderQuantitiesCount1 = InventoryPositionCount_S1;
+        const int OrderQuantitiesCount1 = 9;
         const int a = 4;
         const int b = 5;
         const double SalePrice = 2.0;
         const double HoldingCostPerDay = -0.1;
-        const double LotSize = 5;
+        const int LotSize = 5;
         const double OutageCost = -SalePrice, ShortageCost = -0.5f;
         const double OrderingCost = 3.0;
 
-        static readonly double LearningRate = 0.01;
-        const int Episodes = 1_000;
+        const double LearningRate = 0.1;
+        const int Episodes = 30_000;
         const int MaxStepPerEpisode = InventoryPositionCount_S1;
         static readonly double EpsilonDecay = Math.Exp(Math.Log(0.1) / Episodes);
         const double FutureDiscount = 0.98;
 
-        readonly int NumberOfProduct = 40;
-
-        /// <summary>
-        /// Total unit of all product must be less than this
-        /// </summary>
-        int MaxTotalInventory = 100;
-
-        /// <summary>
-        /// individually each product mustn't be greater than their MaxInventory level in unit
-        /// </summary>
-        int[] MaxInventory;
-
         static Random randm = new Random(DateTime.UtcNow.Millisecond);
-
-        public QLearningMultiProduct()
-        {
-            MaxInventory = new int[NumberOfProduct];
-            for (int i = 0; i < NumberOfProduct; i++)
-            {
-                MaxInventory[i] = 30 + randm.Next(70);
-            }
-        }
 
         public static double[] Start(IProgress<double> pr)
         {
             double[] EpisodeRewards = new double[Episodes];
 
-            var OrderQuantities = new int[OrderQuantitiesCount1 + 1];
-            var InventoryPositions = new int[InventoryPositionCount_S1 + 1];
-            var RemainingLives = new int[RemainingLivesCount_S1 + 1];
+            var OrderQuantities = new int[OrderQuantitiesCount1];
+            var InventoryPositions = new int[InventoryPositionCount_S1];
+            var RemainingLives = new int[RemainingLivesCount_S1];
 
             Task.WhenAll(
                 Task.Factory.StartNew(() =>
                 {
-                    for (int i = 0; i <= OrderQuantitiesCount1; i++)
+                    for (int i = 0; i < OrderQuantitiesCount1; i++)
                     {
                         OrderQuantities[i] = i;
                     }
                 }),
                 Task.Factory.StartNew(() =>
                 {
-                    for (int i = 0; i <= InventoryPositionCount_S1; i++)
+                    for (int i = 0; i < InventoryPositionCount_S1; i++)
                     {
                         InventoryPositions[i] = i;
                     }
                 }),
                 Task.Factory.StartNew(() =>
                 {
-                    for (int i = 0; i <= RemainingLivesCount_S1; i++)
+                    for (int i = 0; i < RemainingLivesCount_S1; i++)
                     {
                         RemainingLives[i] = i;
                     }
-                })).Wait();
+                })
+            ).Wait();
 
             var Table1 = new QTable1(InventoryPositions, RemainingLives, OrderQuantities);
 
@@ -101,20 +81,21 @@ namespace QLearningOnPerishableInventory
                     int life_rem = ProductsOnHand.Sum(p => Product.LIFE_SPAN - p.LifeSpent);
 
                     // determine order quantity
-                    int oq;
+                    int oq, lot;
                     int total_product_count = ProductsOnHand.Count;
-                    int max_oq = InventoryPositionCount_S1 - total_product_count;
+                    int max_oq = MakeLot(InventoryPositionCount_S1 - total_product_count);
                     var dec_rnd = randm.NextDouble();
 
                     if (dec_rnd < Epsilon) // explore
                     {
-                        oq = OrderQuantities[randm.Next(max_oq)];
+                        lot = OrderQuantities[randm.Next(max_oq)];
                     }
                     else // exploit
                     {
                         var key = Table1.GetMaxOrderQuantityForState(total_product_count, life_rem, max_oq);
-                        oq = key.Action;
+                        lot = key.Action;
                     }
+                    oq = lot * LotSize;
 
                     // recieve the arrived products that was ordered previously
                     for (int i = oq - 1; i >= 0; i--)
@@ -168,12 +149,13 @@ namespace QLearningOnPerishableInventory
                     // calculate max q(s',a')
                     // quantity in next round = on hand inventory + orders in transit - next day demand
                     var new_total_product_count = ProductsOnHand.Count;
-                    var next_maxq_key = Table1.GetMaxOrderQuantityForState(new_total_product_count, new_life_rem, OrderQuantities.Last() - new_total_product_count);
+                    var max_oq_tmp = MakeLot(OrderQuantities.Last() * 5 - new_total_product_count);
+                    var next_maxq_key = Table1.GetMaxOrderQuantityForState(new_total_product_count, new_life_rem, max_oq_tmp);
                     var max_q_future = Table1[next_maxq_key];
 
                     // update q table
                     var state = new QuantityLifeState(total_product_count, life_rem);
-                    var sa_pair = new QTableKey1(state, oq);
+                    var sa_pair = new QTableKey1(state, lot);
                     Table1[sa_pair] = (1 - LearningRate) * Table1[sa_pair] + LearningRate * (reward + FutureDiscount * max_q_future);
                 }
 
@@ -186,6 +168,13 @@ namespace QLearningOnPerishableInventory
             }
 
             return EpisodeRewards;
+        }
+
+        static int MakeLot(int product_count, int lot_size = LotSize)
+        {
+            product_count -= product_count % lot_size;
+            product_count /= lot_size;
+            return product_count;
         }
     }
 }
