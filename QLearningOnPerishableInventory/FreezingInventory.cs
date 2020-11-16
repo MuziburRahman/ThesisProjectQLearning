@@ -1,31 +1,35 @@
-﻿using QLearningOnPerishableInventory;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace QLearningOnPerishableInventory
 {
-
-    public class QLearningMultiProduct
+    public class FreezingInventory
     {
-        const int ProductLife = 5;
+        const int ProductLife = 30;
         const int InventoryPositionCount_S1 = 41;
         const int RemainingLivesCount_S1 = InventoryPositionCount_S1 * ProductLife;
         const int OrderQuantitiesCount1 = 9;
         const int a = 4;
         const int b = 5;
-        const double SalePrice = 2.0;
-        const double HoldingCostPerDay = -0.1;
+        
+        const double InitialSalePricePerUnit = 5.0;
+        const double PriceDeclinePerDay = (InitialSalePricePerUnit - 2.0) / 30;
+
+        // costs
+        const double FreezerCostFixedPerDay = -InitialSalePricePerUnit;
+        const double HoldingCostPerDay = -0.2;
         const int LotSize = 5;
-        const double OutageCost = -SalePrice, ShortageCost = -0.5f;
+        const double OutageCost = -InitialSalePricePerUnit, ShortageCost = -0.5f;
         const double OrderingCost = 3.0;
 
-        const double LearningRate = 0.1;
+        const double LearningRate = 0.001;
         const int Episodes = 30_000;
         const int MaxStepPerEpisode = InventoryPositionCount_S1;
         static readonly double EpsilonDecay = Math.Exp(Math.Log(0.1) / Episodes);
-        const double FutureDiscount = 0.98;
+        const double FutureDiscount = 0.99;
 
         static Random randm = new Random(DateTime.UtcNow.Millisecond);
 
@@ -61,7 +65,7 @@ namespace QLearningOnPerishableInventory
                 })
             ).Wait();
 
-            var Table1 = new QTable1(InventoryPositions, RemainingLives, OrderQuantities);
+            var Table1 = new QTable1(InventoryPositions, RemainingLives, OrderQuantities, ProductLife);
 
             double Epsilon = 1;
             int ep = 0;
@@ -107,20 +111,20 @@ namespace QLearningOnPerishableInventory
                     // calculate shortage
                     int Ts = Math.Max(0, actual_demand - ProductsOnHand.Count);
 
-                    int actual_sale = 0;
+                    double sale_price_for_step = 0.0;
                     // remove the products consumed by customers
                     if (ProductsOnHand.Count > 0)
                     {
                         if (actual_demand >= ProductsOnHand.Count)
                         {
-                            actual_sale = ProductsOnHand.Count;
+                            sale_price_for_step = ProductsOnHand.Sum(p => InitialSalePricePerUnit - p.LifeSpent * PriceDeclinePerDay);
                             ProductsOnHand.Clear();
                         }
                         else
                         {
                             // removing the oldest products
+                            sale_price_for_step = ProductsOnHand.Take(actual_demand).Sum(p => InitialSalePricePerUnit - p.LifeSpent * PriceDeclinePerDay);
                             ProductsOnHand.RemoveRange(0, actual_demand);
-                            actual_sale = actual_demand;
                         }
                     }
 
@@ -142,7 +146,12 @@ namespace QLearningOnPerishableInventory
                         }
                     }
 
-                    double reward = Ts * ShortageCost + To * OutageCost + HoldingCost + actual_sale * SalePrice;
+                    double reward = Ts * ShortageCost + 
+                                    To * OutageCost + 
+                                    HoldingCost +
+                                    sale_price_for_step + 
+                                    FreezerCostFixedPerDay;
+
                     HoldingCost = PrevHoldingCost;
 
                     ep_reward += reward;

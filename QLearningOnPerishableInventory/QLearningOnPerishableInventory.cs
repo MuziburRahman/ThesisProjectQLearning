@@ -8,8 +8,6 @@ namespace QLearningOnPerishableInventory
 
     public class Product
     {
-        public const int LIFE_SPAN = 5; // product life
-
         public int LifeSpent;
 
         public Product(int spent)
@@ -33,15 +31,16 @@ namespace QLearningOnPerishableInventory
     //    public int TotalRemainingLife()
     //    {
     //        int day_spent = LeadTime - RemainingDaysToArrive;
-    //        return Quantity * (Product.LIFE_SPAN - day_spent);
+    //        return Quantity * (ProductLife - day_spent);
     //    }
     //}
 
     public class QLearningOnPerishableInventory
     {
+        const int ProductLife = 5;
         const int InventoryPositionCount_S1 = 41;
         const int InventoryPositionCount_S2 = 101;
-        const int RemainingLivesCount_S1 = InventoryPositionCount_S1 * Product.LIFE_SPAN;
+        const int RemainingLivesCount_S1 = InventoryPositionCount_S1 * ProductLife;
         const int OrderQuantitiesCount1 = InventoryPositionCount_S1;
         const int OrderQuantitiesCount2 = InventoryPositionCount_S2;
         const int a = 4;
@@ -125,7 +124,7 @@ namespace QLearningOnPerishableInventory
 
             double Epsilon = 1;
             int ep = 0;
-            var itr = MathFunctions.GetDemand(a, b, new Random(DateTime.UtcNow.Millisecond)).GetEnumerator();
+            var itr = MathFunctions.GetDemandByGammaDist(a, b, new Random(DateTime.UtcNow.Millisecond)).GetEnumerator();
 
             while (ep < Episodes)
             {
@@ -137,7 +136,7 @@ namespace QLearningOnPerishableInventory
                     itr.MoveNext();
                     var actual_demand = itr.Current;
 
-                    int life_rem = ProductsOnHand.Sum(p => Product.LIFE_SPAN - p.LifeSpent);
+                    int life_rem = ProductsOnHand.Sum(p => ProductLife - p.LifeSpent);
                     
                     // determine order quantity
                     int oq;
@@ -184,13 +183,13 @@ namespace QLearningOnPerishableInventory
                     for (int i = ProductsOnHand.Count - 1; i >= 0; i--)
                     {
                         ProductsOnHand[i].LifeSpent++;
-                        if (ProductsOnHand[i].LifeSpent > Product.LIFE_SPAN)
+                        if (ProductsOnHand[i].LifeSpent > ProductLife)
                         {
                             To++;
                             ProductsOnHand.RemoveAt(i);
                         }
                         else
-                            new_life_rem += Product.LIFE_SPAN - ProductsOnHand[i].LifeSpent;
+                            new_life_rem += ProductLife - ProductsOnHand[i].LifeSpent;
                     }
 
                     double reward = Ts * ShortageCost + To * OutageCost;
@@ -228,7 +227,7 @@ namespace QLearningOnPerishableInventory
             double Epsilon = 1;
 
             int ep = 0;
-            var itr = MathFunctions.GetDemand(a, b, new Random(DateTime.UtcNow.Millisecond)).GetEnumerator();
+            var itr = MathFunctions.GetDemandByGammaDist(a, b, new Random(DateTime.UtcNow.Millisecond)).GetEnumerator();
 
             while (ep < Episodes)
             {
@@ -284,7 +283,7 @@ namespace QLearningOnPerishableInventory
                     for (int i = ProductsOnHand.Count - 1; i >= 0; i--)
                     {
                         ProductsOnHand[i].LifeSpent++;
-                        if (ProductsOnHand[i].LifeSpent > Product.LIFE_SPAN)
+                        if (ProductsOnHand[i].LifeSpent > ProductLife)
                         {
                             To++;
                             ProductsOnHand.RemoveAt(i);

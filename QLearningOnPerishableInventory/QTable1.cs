@@ -49,7 +49,7 @@ namespace QLearningOnPerishableInventory
 
     public class QTable1 : QTableBase<QTableKey1>
     {
-        public QTable1(int[] inv_pos, int[] rem_life, int[] oq) : base(inv_pos.Length * rem_life.Length * oq.Length)
+        public QTable1(int[] inv_pos, int[] rem_life, int[] oq, int prdct_life = 5) : base(inv_pos.Length * rem_life.Length * oq.Length)
         {
             Random rnd = new Random(DateTime.UtcNow.Millisecond);
             var initial_q_values = new[] { 0, -5, 5, 10, -10 };
@@ -57,7 +57,7 @@ namespace QLearningOnPerishableInventory
 
             for (int i = 0; i < inv_pos.Length; i++)
             {
-                var max_life = Math.Min(rem_life.Length, i * Product.LIFE_SPAN + 1);
+                var max_life = Math.Min(rem_life.Length, i * prdct_life + 1);
 
                 for (int j = 0; j < max_life; j++)
                 {
