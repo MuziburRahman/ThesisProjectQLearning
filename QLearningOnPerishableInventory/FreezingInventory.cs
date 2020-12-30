@@ -8,7 +8,7 @@ namespace QLearningOnPerishableInventory
 {
     public class FreezingInventory
     {
-        const int ProductLife = 30;
+        const int ProductLife = 8;
         const int InventoryPositionCount_S1 = 41;
         const int RemainingLivesCount_S1 = InventoryPositionCount_S1 * ProductLife;
         const int OrderQuantitiesCount1 = 9;
@@ -23,10 +23,9 @@ namespace QLearningOnPerishableInventory
         const double HoldingCostPerDay = -0.2;
         const int LotSize = 5;
         const double OutageCost = -InitialSalePricePerUnit, ShortageCost = -0.5f;
-        const double OrderingCost = 3.0;
 
-        const double LearningRate = 0.001;
-        const int Episodes = 30_000;
+        const double LearningRate = 0.01;
+        const int Episodes = 200_000;
         const int MaxStepPerEpisode = InventoryPositionCount_S1;
         static readonly double EpsilonDecay = Math.Exp(Math.Log(0.1) / Episodes);
         const double FutureDiscount = 0.99;
@@ -122,9 +121,20 @@ namespace QLearningOnPerishableInventory
                         }
                         else
                         {
-                            // removing the oldest products
-                            sale_price_for_step = ProductsOnHand.Take(actual_demand).Sum(p => InitialSalePricePerUnit - p.LifeSpent * PriceDeclinePerDay);
-                            ProductsOnHand.RemoveRange(0, actual_demand);
+                            // dynamic pricing
+                            sale_price_for_step = ProductsOnHand
+                                .Take(actual_demand)
+                                .Sum(p =>
+                                {
+                                    double curLife = (double)p.LifeSpent / ProductLife;
+                                    if (curLife <= 0.4)
+                                        return InitialSalePricePerUnit;
+                                    var discount = InitialSalePricePerUnit * curLife / 2;
+                                    return InitialSalePricePerUnit - discount;
+                                });
+
+                            // removing the newest products
+                            ProductsOnHand.RemoveRange(ProductsOnHand.Count - actual_demand, actual_demand);
                         }
                     }
 

@@ -48,7 +48,7 @@ namespace QLearningOnPerishableInventory
         }
 
 
-        public static IEnumerable<int> GetDemandByNormalDist(double mn, double sd, Random rnd)
+        public static IEnumerable<int> GetValueByNormalDist(double mn, double sd, Random rnd)
         {
             Normal nrm = new Normal(mn, sd, rnd);
 
@@ -80,7 +80,9 @@ namespace QLearningOnPerishableInventory
                         break;
                     }
                 }
+                break;
             }
+            yield break;
         }
     }
 }
