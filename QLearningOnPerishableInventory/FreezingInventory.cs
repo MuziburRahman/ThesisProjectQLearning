@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,49 +26,32 @@ namespace QLearningOnPerishableInventory
         const double OutageCost = -InitialSalePricePerUnit, ShortageCost = -0.5f;
 
         const double LearningRate = 0.01;
-        const int Episodes = 200_000;
+        const long Episodes = 10_000_000;
         const int MaxStepPerEpisode = InventoryPositionCount_S1;
+        double Epsilon = 1;
+
         static readonly double EpsilonDecay = Math.Exp(Math.Log(0.1) / Episodes);
         const double FutureDiscount = 0.99;
 
         static Random randm = new Random(DateTime.UtcNow.Millisecond);
+        QTable1 Table1;
 
-        public static double[] Start(IProgress<double> pr)
+        long PreviousIterCount = 0;
+        readonly int[] OrderQuantities;
+
+        public long LastIdx = 0;
+
+        public FreezingInventory()
+        {
+            OrderQuantities = new int[OrderQuantitiesCount1];
+        }
+
+        public double[] Start(IProgress<double> pr, double eps = 1L)
         {
             double[] EpisodeRewards = new double[Episodes];
 
-            var OrderQuantities = new int[OrderQuantitiesCount1];
-            var InventoryPositions = new int[InventoryPositionCount_S1];
-            var RemainingLives = new int[RemainingLivesCount_S1];
-
-            Task.WhenAll(
-                Task.Factory.StartNew(() =>
-                {
-                    for (int i = 0; i < OrderQuantitiesCount1; i++)
-                    {
-                        OrderQuantities[i] = i;
-                    }
-                }),
-                Task.Factory.StartNew(() =>
-                {
-                    for (int i = 0; i < InventoryPositionCount_S1; i++)
-                    {
-                        InventoryPositions[i] = i;
-                    }
-                }),
-                Task.Factory.StartNew(() =>
-                {
-                    for (int i = 0; i < RemainingLivesCount_S1; i++)
-                    {
-                        RemainingLives[i] = i;
-                    }
-                })
-            ).Wait();
-
-            var Table1 = new QTable1(InventoryPositions, RemainingLives, OrderQuantities, ProductLife);
-
-            double Epsilon = 1;
-            int ep = 0;
+            Epsilon = eps;
+            long ep = 0;
             var itr = MathFunctions.GetDemandByGammaDist(a, b, new Random(DateTime.UtcNow.Millisecond)).GetEnumerator();
 
             while (ep < Episodes)
@@ -133,7 +117,7 @@ namespace QLearningOnPerishableInventory
                                     return InitialSalePricePerUnit - discount;
                                 });
 
-                            // removing the newest products
+                            // LIFO policy : removing the newest products
                             ProductsOnHand.RemoveRange(ProductsOnHand.Count - actual_demand, actual_demand);
                         }
                     }
@@ -180,9 +164,10 @@ namespace QLearningOnPerishableInventory
                 }
 
                 EpisodeRewards[ep] = ep_reward;
+
                 Epsilon *= EpsilonDecay;
                 //LearningRate *= EpsilonDecay;
-                if (ep % 50 == 0)
+                if (ep % 5000 == 0)
                     pr.Report(ep * 100.0 / Episodes);
                 ep++;
             }
@@ -190,11 +175,55 @@ namespace QLearningOnPerishableInventory
             return EpisodeRewards;
         }
 
+        public async Task PrepareTable()
+        {
+            var InventoryPositions = new int[InventoryPositionCount_S1];
+            var RemainingLives = new int[RemainingLivesCount_S1];
+
+            await Task.WhenAll(
+                Task.Factory.StartNew(() =>
+                {
+                    for (int i = 0; i < OrderQuantitiesCount1; i++)
+                    {
+                        OrderQuantities[i] = i;
+                    }
+                }),
+                Task.Factory.StartNew(() =>
+                {
+                    for (int i = 0; i < InventoryPositionCount_S1; i++)
+                    {
+                        InventoryPositions[i] = i;
+                    }
+                }),
+                Task.Factory.StartNew(() =>
+                {
+                    for (int i = 0; i < RemainingLivesCount_S1; i++)
+                    {
+                        RemainingLives[i] = i;
+                    }
+                })
+            );
+
+            Table1 = new QTable1(InventoryPositions, RemainingLives, OrderQuantities, ProductLife);
+        }
+
         static int MakeLot(int product_count, int lot_size = LotSize)
         {
             product_count -= product_count % lot_size;
             product_count /= lot_size;
             return product_count;
+        }
+
+        public Task Save(Stream str)
+        {
+            return Table1.Save(str, Episodes + PreviousIterCount);
+        }
+
+        public async Task<double> Load(Stream str)
+        {
+            PreviousIterCount = await Table1.Load(str);
+            var pre_epsilon_decay = Math.Exp(Math.Log(0.1) / PreviousIterCount);
+            return Math.Pow(pre_epsilon_decay, MaxStepPerEpisode * PreviousIterCount);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using MathNet.Numerics.Distributions;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace QLearningOnPerishableInventory
@@ -83,6 +84,36 @@ namespace QLearningOnPerishableInventory
                 break;
             }
             yield break;
+        }
+
+        public static IEnumerable<int> GetNonUniformDiscreteValues(params (int, double)[] xs)
+        {
+            if (Math.Abs(xs.Sum(x => x.Item2) - 1) > 1e-3)
+                throw new ArgumentException("probabilitiees must sum to 1.0");
+
+            double[] cumul = new double[xs.Length];
+            cumul[0] = xs[0].Item2;
+
+            for (int i = 1; i < xs.Length; i++)
+            {
+                cumul[i] = cumul[i - 1] + xs[i].Item2;
+            }
+
+            Random rnd = new Random(DateTime.UtcNow.Millisecond);
+
+            while (true)
+            {
+                var r = rnd.NextDouble();
+
+                for (int i = cumul.Length - 1; i >= 0; i--)
+                {
+                    if (r > cumul[i])
+                    {
+                        yield return xs[i].Item1;
+                        break;
+                    }
+                }
+            }
         }
     }
 }

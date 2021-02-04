@@ -1,5 +1,7 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace QLearningOnPerishableInventory
 {
@@ -97,6 +99,44 @@ namespace QLearningOnPerishableInventory
             }
 
             return key_for_max_q;
+        }
+
+        public async Task Save(Stream stream, long ep_count)
+        {
+            stream.SetLength(0);
+
+            using (StreamWriter writer = new StreamWriter(stream))
+            {
+                await writer.WriteLineAsync(ep_count.ToString());
+
+                for (int i = 0; i < dict_internal.Count; i++)
+                {
+                    var kv = dict_internal.ElementAt(i);
+                    await writer.WriteLineAsync(kv.Key.State.InvPosition + " | " + kv.Key.State.RemainingLife + " | " + kv.Key.Action + " | " + kv.Value);
+                }
+            }
+        }
+
+        public async Task<long> Load(Stream stream)
+        {
+            dict_internal.Clear();
+            string ep_count_str;
+
+            using (StreamReader writer = new StreamReader(stream))
+            {
+                ep_count_str = await writer.ReadLineAsync();
+
+                while (!writer.EndOfStream)
+                {
+                    var str = await writer.ReadLineAsync();
+                    string[] values = str.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+                    QuantityLifeState state = new QuantityLifeState(int.Parse(values[0]), int.Parse(values[1]));
+                    QTableKey1 key = new QTableKey1(state, int.Parse(values[2]));
+                    dict_internal[key] = double.Parse(values[3]);
+                }
+            }
+
+            return long.Parse(ep_count_str);
         }
     }
 
