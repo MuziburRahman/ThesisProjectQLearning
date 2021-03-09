@@ -25,11 +25,11 @@ namespace QLearningOnPerishableInventory
         const double OutageCost = -InitialSalePricePerUnit, ShortageCost = -1;
 
         const double LearningRate = 0.01;
-        const long Episodes = 2_000_000;
-        const int MaxStepPerEpisode = MaxInventoryPosition;
+        const long Episodes = 3_000_000;
+        const int MaxStepPerEpisode = 40;
         double Epsilon = 1;
 
-        static readonly double EpsilonDecay = Episodes > 1_000_000L ? Math.Exp(Math.Log(0.1) / 1_000_000) : Math.Exp(Math.Log(0.1) / Episodes);
+        static readonly double EpsilonDecay = Episodes > 2_000_000L ? Math.Exp(Math.Log(0.1) / 2_000_000) : Math.Exp(Math.Log(0.1) / Episodes);
         const double FutureDiscount = 0.99;
 
         static Random randm = new Random(DateTime.UtcNow.Millisecond);
@@ -153,7 +153,7 @@ namespace QLearningOnPerishableInventory
                                     HoldingCost +
                                     sale_price_for_step + 
                                     FreezerCostFixedPerDay;
-                    System.Diagnostics.Debug.WriteLine(HoldingCost);
+                    //System.Diagnostics.Debug.WriteLine(HoldingCost);
                     ep_reward += reward;
 
                     // calculate max q(s',a')
@@ -169,7 +169,7 @@ namespace QLearningOnPerishableInventory
                     Table1[sa_pair] = (1 - LearningRate) * Table1[sa_pair] + LearningRate * (reward + FutureDiscount * max_q_future);
                 }
 
-                EpisodeRewards[ep] = ep_reward;
+                EpisodeRewards[ep] = ep_reward / MaxStepPerEpisode;
 
                 if(Epsilon > 0.05)
                     Epsilon *= EpsilonDecay;

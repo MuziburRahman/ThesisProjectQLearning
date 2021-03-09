@@ -54,7 +54,7 @@ namespace QLearningOnPerishableInventory
         public QTable1(int[] inv_pos, int[] rem_life, int[] oq, int prdct_life = 5) : base(inv_pos.Length * rem_life.Length * oq.Length)
         {
             Random rnd = new Random(DateTime.UtcNow.Millisecond);
-            var initial_q_values = new[] { 0, -5, 5, 10, -10 };
+            var initial_q_values = new[] { 0, -5, -3, -2, -1 };
             var max_inv_pos = inv_pos.Last();
 
             for (int i = 0; i < inv_pos.Length; i++)
